@@ -18,6 +18,7 @@ public class Cat {
     public boolean down;
     public boolean left;
     public boolean up;
+    public boolean jumping;
 
     public Cat(int pXpos, int pYpos, int dxParameter, int dyParameter) {
 
@@ -36,6 +37,12 @@ public class Cat {
     public void move() {
         xpos = xpos + dx;
         ypos = ypos + dy;
+
+        dy = dy + 1;
+
+        if (ypos > 250) {
+            ypos = 250;
+        }
 
         if (xpos > 1000 - width || xpos < 0) {
             dx = -dx;

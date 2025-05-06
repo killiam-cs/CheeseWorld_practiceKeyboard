@@ -2,11 +2,13 @@
 //Add Java libraries needed for the game
 
 import java.awt.Graphics2D;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.awt.image.BufferStrategy;
 import java.awt.*;
 import javax.swing.*;
 
-public class CheeseWorld implements Runnable {
+public class CheeseWorld implements Runnable, KeyListener {
 
     //Variable Definition Section
 
@@ -20,14 +22,15 @@ public class CheeseWorld implements Runnable {
     public JPanel panel;
     public BufferStrategy bufferStrategy;
 
-    public boolean gameStart = false;
-
     //Declare the character objects
     public Mouse jerry;
     public Cheese cheese;
+    // STEP 1 FOR CREATING AN ARRAY
+    public Cheese[] manyCheese;
     public Cat tom;
 
     public String winner = "";
+    public boolean gameStart = false;
     public boolean gameOver = false;
 
     // Main method definition
@@ -43,13 +46,45 @@ public class CheeseWorld implements Runnable {
 
         setUpGraphics();
 
+        canvas.addKeyListener(this);
+
         //create (construct) the objects needed for the game
+        tom = new Cat(650, 250, 0, 0);
         jerry = new Mouse(200, 300, 0, 0);
         cheese = new Cheese(400, 300, 3, -4);
-        tom = new Cat(650, 250, 0, 0);
+        // STEP 2 FOR CREATING AN ARRAY
+        // construct array
+        manyCheese = new Cheese[5];
+        // fill array
+        for (int i = 0; i < manyCheese.length; i=i+1) {
+            manyCheese[i] = new Cheese((int)(Math.random()*900), i*100,
+                    (int)(Math.random()*5-2), (int)(Math.random()*5-2));
+            while (manyCheese[i].dx == 0) {
+                manyCheese[i].dx = (int)(Math.random()*5-2);
+            }
+            while (manyCheese[i].dy == 0) {
+                manyCheese[i].dy = (int)(Math.random()*5-2);
+            }
+            //re-locate cheese if it is within 50 of tom/jerry
+            //condition: (cheese x within 50 of tom x AND
+            // cheese y within 50 of tom y) OR
+            // (cheese x within 50 of jerry x AND
+            // cheese y within 50 of jerry y)
+            while ((Math.abs(manyCheese[i].xpos - tom.xpos) <= 50 &&
+                    Math.abs(manyCheese[i].ypos - tom.ypos) <= 50) ||
+                    (Math.abs(manyCheese[i].xpos - jerry.xpos) <= 50 &&
+                    Math.abs(manyCheese[i].ypos - jerry.ypos) <= 50)) {
+                System.out.println("relocating cheese " + i);
+                manyCheese[i].xpos = (int)(Math.random()*900);
+            }
+        }
+
 
         //load images
         cheese.pic = Toolkit.getDefaultToolkit().getImage("cheese.gif");
+        for (int i = 0; i < manyCheese.length; i=i+1) {
+            manyCheese[i].pic = Toolkit.getDefaultToolkit().getImage("cheese.gif");
+        }
         jerry.pic = Toolkit.getDefaultToolkit().getImage("jerry.gif");
         tom.pic = Toolkit.getDefaultToolkit().getImage("tomCat.png");
 
@@ -62,18 +97,52 @@ public class CheeseWorld implements Runnable {
     // this is the code that plays the game after you set things up
     public void run() {
         while (true) {
-            if (gameOver == false) {
+            if (gameStart == true && gameOver == false) {
+                checkKeys();
                 moveThings();           //move all the game objects
+                checkIntersections();   // check character crashes
             }
-            checkIntersections();   // check character crashes
             render();               // paint the graphics
             pause(20);         // sleep for 20 ms
         }
     }
 
+    public void checkKeys() {
+        if (tom.left == true) {
+            tom.dx = -3;
+        }
+        else if (tom.right == true) {
+            tom.dx = 3;
+        }
+        else {
+            tom.dx = 0;
+        }
+
+//        if (tom.up == true) {
+//            tom.dy = -3;
+//        }
+//        else if (tom.down == true) {
+//            tom.dy = 3;
+//        }
+//        else {
+//            tom.dy = 0;
+//        }
+
+//        if (tom.jumping == true) {
+//            tom.dy = tom.dy + 1;
+//        }
+//        if (tom.ypos > 250) {
+//            tom.ypos = 250;
+//        }
+
+    }
+
     public void moveThings() {
         jerry.move();
         cheese.move();
+        for (int i = 0; i < manyCheese.length; i++) {
+            manyCheese[i].move();
+        }
         tom.move();
     }
 
@@ -93,6 +162,13 @@ public class CheeseWorld implements Runnable {
             winner = "cheese";
             gameOver = true;
         }
+        for (int i = 0; i < manyCheese.length; i++) {
+            if (tom.rec.intersects(manyCheese[i].rec)) {
+                tom.isAlive = false;
+                winner = "cheese";
+                gameOver = true;
+            }
+        }
     }
 
     //paints things on the screen using bufferStrategy
@@ -100,27 +176,43 @@ public class CheeseWorld implements Runnable {
         Graphics2D g = (Graphics2D) bufferStrategy.getDrawGraphics();
         g.clearRect(0, 0, WIDTH, HEIGHT);
 
-        int textX = 50;
-        int textY = 50;
-        g.setFont(new Font("TimesRoman", Font.BOLD, 20));
-        g.drawString("Tom tries to get Jerry and avoid cheese", textX, textY);
-        g.drawString("Jerry tries to eat the cheese and avoid Tom", textX, textY + 30);
-        g.drawString("First one to succeed wins!",textX, textY + 60);
+        if (gameStart == false) {
+            g.setColor(Color.BLUE);
+            g.fillRect(0,0,1000,800);
+            g.setColor(Color.YELLOW);
+            g.drawString("Press enter to start", 350, 300);
+            int textX = 50;
+            int textY = 50;
+            g.setFont(new Font("TimesRoman", Font.BOLD, 20));
+            g.drawString("Tom tries to get Jerry and avoid cheese", textX, textY);
+            g.drawString("Jerry tries to eat the cheese and avoid Tom", textX, textY + 30);
+            g.drawString("First one to succeed wins!",textX, textY + 60);
 
-        // draw characters to the screen (only draw if they are alive)
-        if (jerry.isAlive == true) {
-            g.drawImage(jerry.pic, jerry.xpos, jerry.ypos, jerry.width, jerry.height, null);
-        }
-        if (cheese.isAlive == true) {
-            g.drawImage(cheese.pic, cheese.xpos, cheese.ypos, cheese.width, cheese.height, null);
-        }
-        if (tom.isAlive == true) {
-            g.drawImage(tom.pic, tom.xpos, tom.ypos, tom.width, tom.height, null);
-        }
+        } // gameStart is false (game has not started yet)
+        else if (gameStart == true && gameOver == false) {
 
-        if (gameOver == true) {
+            // draw characters to the screen (only draw if they are alive)
+            if (jerry.isAlive == true) {
+                g.drawImage(jerry.pic, jerry.xpos, jerry.ypos, jerry.width, jerry.height, null);
+            }
+            if (cheese.isAlive == true) {
+                g.drawImage(cheese.pic, cheese.xpos, cheese.ypos, cheese.width, cheese.height, null);
+            }
+            for (int i = 0; i < manyCheese.length; i=i+1) {
+                g.drawImage(manyCheese[i].pic, manyCheese[i].xpos, manyCheese[i].ypos,
+                        manyCheese[i].width, manyCheese[i].height, null);
+            }
+            if (tom.isAlive == true) {
+                g.drawImage(tom.pic, tom.xpos, tom.ypos, tom.width, tom.height, null);
+            }
+        } // gameStart is tru (game has started)
+        else {
             g.drawString(winner + " wins!!!", 450, 350);
         }
+
+        // HW: in the holiday game, for the character that is NOT keyboard-controlled,
+        // make an array of that character (e.g. an array of loraxes)
+        // that behave in the same way as the original character
 
         g.dispose();
         bufferStrategy.show();
@@ -166,4 +258,39 @@ public class CheeseWorld implements Runnable {
         }
     }
 
+    @Override
+    public void keyTyped(KeyEvent e) {
+
+    }
+
+    @Override
+    public void keyPressed(KeyEvent e) {
+        int keyCode = e.getKeyCode();
+        System.out.println(keyCode);
+        if (keyCode == 10) {
+            gameStart = true;
+        }
+
+        if (keyCode == 37) {
+            tom.left = true;
+        }
+        if (keyCode == 39) {
+            tom.right = true;
+        }
+        if (keyCode == 32) {
+            tom.dy = -15;
+            tom.jumping = true;
+        }
+    }
+
+    @Override
+    public void keyReleased(KeyEvent e) {
+        int keyCode = e.getKeyCode();
+        if (keyCode == 37) {
+            tom.left = false;
+        }
+        if (keyCode == 39) {
+            tom.right = false;
+        }
+    }
 } // end of class
